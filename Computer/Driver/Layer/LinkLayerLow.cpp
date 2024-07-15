@@ -83,7 +83,7 @@ CRCDataEncoderDecoder::~CRCDataEncoderDecoder()
 DynamicDataBuffer CRCDataEncoderDecoder::encode(const DynamicDataBuffer& data) const
 {
     // À faire TP1 (si CRC demandé)
-    //return data;
+
     std::cout << "----- Encodeur -----" << std::endl;
 
     uint32_t num_input_bits = data.size() * 8;
@@ -175,7 +175,7 @@ DynamicDataBuffer CRCDataEncoderDecoder::encode(const DynamicDataBuffer& data) c
     std::cout << std::endl;
 
 
-    // Convertin de  buffer a DynamicDataBuffer
+    // Convertion de  buffer a DynamicDataBuffer
     std::vector<uint8_t> bufferData(buffer.size() / 8 + (buffer.size() % 8 != 0 ? 1 : 0));
     for (size_t i = 0; i < buffer.size(); ++i)
     {
@@ -190,7 +190,7 @@ DynamicDataBuffer CRCDataEncoderDecoder::encode(const DynamicDataBuffer& data) c
 std::pair<bool, DynamicDataBuffer> CRCDataEncoderDecoder::decode(const DynamicDataBuffer& data) const
 {
     // À faire TP1 (si CRC demandé)
-    //return std::pair<bool, DynamicDataBuffer>(true, data);
+ 
     std::cout << "----- Decodeur -----" << std::endl;
 
     // Convertir data a std::deque<bool>
