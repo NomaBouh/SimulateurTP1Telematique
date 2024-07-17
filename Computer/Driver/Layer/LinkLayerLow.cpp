@@ -7,6 +7,7 @@
 #include "../../../General/Logger.h"
 
 #include <iostream>
+#include <bitset>
 
 std::unique_ptr<DataEncoderDecoder> DataEncoderDecoder::CreateEncoderDecoder(const Configuration& config)
 {
@@ -52,15 +53,125 @@ HammingDataEncoderDecoder::~HammingDataEncoderDecoder()
 
 DynamicDataBuffer HammingDataEncoderDecoder::encode(const DynamicDataBuffer& data) const
 {
-    // À faire TP1 (si Hamming demandé)
-    return data;
+    // Créer un buffer pour stocker les données encodées.
+    DynamicDataBuffer encodedData;
+
+    // On obtient la longueur des données d'entrée.
+    size_t dataLength = data.size();
+    std::cout << "Encoding data of length: " << dataLength << std::endl;
+
+    // Retourner un buffer vide si aucune donnée n'est fournie
+    if (dataLength == 0) {
+        std::cout << "Input data buffer is empty!" << std::endl;
+        return encodedData;
+    }
+
+    // Parcourir chaque octet du buffer de données
+    for (size_t i = 0; i < dataLength; ++i)
+    {
+        // Récupérer l'octet actuel.
+        uint8_t byte = data[i];
+
+        // Initialiser de l'octet encodé
+        uint8_t encodedByte = 0;
+
+        // Extraire les bits de données
+        bool d1 = byte & 0x01;        // Bit 1 (le moins significatif)
+        bool d2 = (byte >> 1) & 0x01; // Bit 2
+        bool d3 = (byte >> 2) & 0x01; // Bit 3
+        bool d4 = (byte >> 3) & 0x01; // Bit 4 (le plus significatif des 4 bits de données)
+
+        std::cout << "d1: " << d1 << " d2: " << d2 << " d3: " << d3 << " d4: " << d4 << std::endl;
+
+        // Calcul des bits de parité en utilisant les bits de données.
+        bool p1 = d1 ^ d2 ^ d4; // Parité 1 (p1)
+        bool p2 = d1 ^ d3 ^ d4; // Parité 2 (p1)
+        bool p3 = d2 ^ d3 ^ d4; // Parité 3 (p1)
+
+        std::cout << "p1: " << p1 << " p2: " << p2 << " p3: " << p3 << std::endl;
+
+        // Composition de l'octet encodé avec les bits de parité et les bits de données.
+        encodedByte |= (p1 << 0); // Place p1 au bit 0 
+        encodedByte |= (p2 << 1); // Place p2 au bit 1
+        encodedByte |= (d1 << 2); // Place d1 au bit 2
+        encodedByte |= (p3 << 3); // Place p3 au bit 3
+        encodedByte |= (d2 << 4); // Place d2 au bit 4
+        encodedByte |= (d3 << 5); // Place d3 au bit 5
+        encodedByte |= (d4 << 6); // Place d4 au bit 6 
+
+        // Affichage de l'octet original de 8 bits et de l'octet encodé pour le débogage de 7 bits.
+        std::cout << "Bits originals de 8 bits: " << std::bitset<8>(byte) << ", Bits encodes de 7 bits: " << std::bitset<7>(encodedByte) << std::endl;
+
+        // Ajouter l'octet encodé au buffer de données encodées
+        encodedData.push_back(encodedByte);
+    }
+
+    // Affiche la longueur des données encodées pour le débogage.
+    std::cout << "Encoded data length: " << encodedData.size() << std::endl;
+    return encodedData;
 }
+
 
 std::pair<bool, DynamicDataBuffer> HammingDataEncoderDecoder::decode(const DynamicDataBuffer& data) const
 {
-    // À faire TP1 (si Hamming demandé)
-    return std::pair<bool, DynamicDataBuffer>(true, data);
+    DynamicDataBuffer decodedData;
+    size_t dataLength = data.size();
+    std::cout << "Decoding data of length: " << dataLength << std::endl;
+
+    if (dataLength == 0) {
+        std::cout << "Input data buffer is empty!" << std::endl;
+        return std::pair<bool, DynamicDataBuffer>(false, decodedData);
+    }
+
+    bool noErrors = true;
+
+    for (size_t i = 0; i < dataLength; ++i)
+    {
+        uint8_t encodedByte = data[i];
+
+        bool p1 = encodedByte & 0x01;
+        bool p2 = (encodedByte >> 1) & 0x01;
+        bool d1 = (encodedByte >> 2) & 0x01;
+        bool p3 = (encodedByte >> 3) & 0x01;
+        bool d2 = (encodedByte >> 4) & 0x01;
+        bool d3 = (encodedByte >> 5) & 0x01;
+        bool d4 = (encodedByte >> 6) & 0x01;
+
+        bool c1 = p1 ^ d1 ^ d2 ^ d4;
+        bool c2 = p2 ^ d1 ^ d3 ^ d4;
+        bool c3 = p3 ^ d2 ^ d3 ^ d4;
+
+        int errorPosition = (c3 << 2) | (c2 << 1) | c1;
+
+        std::cout << "c1: " << c1 << " c2: " << c2 << " c3: " << c3 << " errorPosition: " << errorPosition << std::endl;
+
+        if (errorPosition != 0) {
+            noErrors = false;
+            std::cout << "Error detected at position: " << errorPosition << std::endl;
+            encodedByte ^= (1 << (errorPosition - 1));
+
+            p1 = encodedByte & 0x01;
+            p2 = (encodedByte >> 1) & 0x01;
+            d1 = (encodedByte >> 2) & 0x01;
+            p3 = (encodedByte >> 3) & 0x01;
+            d2 = (encodedByte >> 4) & 0x01;
+            d3 = (encodedByte >> 5) & 0x01;
+            d4 = (encodedByte >> 6) & 0x01;
+        }
+
+        uint8_t decodedByte = (d1 << 0) | (d2 << 1) | (d3 << 2) | (d4 << 3);
+
+        std::cout << "Encoded byte: " << std::bitset<7>(encodedByte) << ", Decoded byte: " << std::bitset<4>(decodedByte) << std::endl;
+
+        decodedData.push_back(decodedByte);
+    }
+
+    std::cout << "Decoded data length: " << decodedData.size() << std::endl;
+
+    return std::pair<bool, DynamicDataBuffer>(noErrors, decodedData);
 }
+
+
 
 
 

@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <vector>
 
 #include "Utils.h"
 
@@ -17,6 +18,7 @@ public:
     DynamicDataBuffer(const DynamicDataBuffer& other);
     DynamicDataBuffer(DynamicDataBuffer&& other);
     ~DynamicDataBuffer();
+    void push_back(uint8_t data);
 
     DynamicDataBuffer& operator=(DynamicDataBuffer&& other);
     DynamicDataBuffer& operator=(const DynamicDataBuffer& other);
@@ -75,102 +77,9 @@ public:
     const uint8_t* data() const;
 
     uint32_t size() const;
-};
 
-
-// Utilitaire pour verifier la taille reelle d'un objet de type DynamicDataBuffer
-// Cette specialisation remplace l'implementation de base de la structure dans Utils.h lorsque le type T est DynamicDataBuffer
-template<>
-struct SizeOf<DynamicDataBuffer>
-{
-    static constexpr size_t value = sizeof(DynamicDataBuffer);
-
-    static size_t data(const DynamicDataBuffer& data)
-    {
-        return sizeof(uint32_t) + data.size();
-    }
-};
-
-
-// Utilitaire pour verifier s'il y a assez de donnee dans une suite d'octet pour reconstruire correctement un objet de type DynamicDataBuffer
-// Cette specialisation remplace l'implementation de base de la structure dans Utils.h lorsque le type T est DynamicDataBuffer
-template<>
-struct EnoughDataFor<DynamicDataBuffer>
-{
-    static bool in(const uint8_t* dataBuffer, size_t bufferStart, size_t bufferSize, size_t bufferCapacity)
-    {
-        if (bufferSize >= sizeof(uint32_t))
-        {
-            union
-            {
-                uint32_t Size;
-                uint8_t ByteData[sizeof(uint32_t)];
-            } bufferSizeNeeded;
-
-            for (size_t i = 0; i < sizeof(uint32_t); ++i)
-            {
-                bufferSizeNeeded.ByteData[i] = dataBuffer[(bufferStart + i) % bufferCapacity];
-            }
-
-            return bufferSize >= sizeof(uint32_t) + bufferSizeNeeded.Size;
-        }
-        else
-        {
-            return false;
-        }
-    }
-};
-
-// Utilitaire pour acceder a la representation equivalente a une suite d'octet pour ecrire correctement un objet de type DynamicDataBuffer
-// Cette specialisation remplace l'implementation de base de la structure dans Utils.h lorsque le type T est DynamicDataBuffer
-template<>
-struct ToDataPtr<DynamicDataBuffer>
-{
-    const DynamicDataBuffer& Data;
-
-    ToDataPtr(const DynamicDataBuffer& data) : Data(data) {}
-
-    uint8_t operator[](size_t byteIndex)
-    {
-        if (byteIndex < sizeof(uint32_t))
-        {
-            const uint8_t* dataPtr = reinterpret_cast<const uint8_t*>(&Data);
-            return dataPtr[byteIndex];
-        }
-        else
-        {
-            return Data[byteIndex - sizeof(uint32_t)];
-        }
-    }
-
-    size_t size() const { return Data.size() + sizeof(uint32_t); }
-};
-
-// Utilitaire pour lire un objet dans une suite d'octet pour reconstruire correctement un objet de type DynamicDataBuffer
-// Cette specialisation remplace l'implementation de base de la structure dans Utils.h lorsque le type T est DynamicDataBuffer
-template<>
-struct FromDataPtr<DynamicDataBuffer>
-{
-    static size_t size(const uint8_t* dataBuffer, size_t bufferStart, size_t bufferCapacity)
-    {
-        union
-        {
-            uint32_t Size;
-            uint8_t ByteData[sizeof(uint32_t)];
-        } bufferSize;
-        for (size_t i = 0; i < sizeof(uint32_t); ++i)
-        {
-            bufferSize.ByteData[i] = dataBuffer[(bufferStart + i) % bufferCapacity];
-        }
-
-        return sizeof(uint32_t) + bufferSize.Size;
-    }
-
-    static DynamicDataBuffer get(const uint8_t* data, size_t dataSize)
-    {
-        DynamicDataBuffer dataValue((uint32_t)(dataSize - sizeof(uint32_t)), &data[sizeof(uint32_t)]);
-        return dataValue;
-    }
+private:
+    std::vector<uint8_t> buffer;
 };
 
 #endif //_GENERAL_DATA_BUFFER_H_
