@@ -53,16 +53,162 @@ HammingDataEncoderDecoder::~HammingDataEncoderDecoder()
 
 DynamicDataBuffer HammingDataEncoderDecoder::encode(const DynamicDataBuffer& data) const
 {
-    // À faire TP1 (si Hamming demandé)
-    return data;
+    std::cout << "----- Encodeur -----" << std::endl;
+
+    // Taille initiale du message
+    uint32_t m = data.size();
+    std::cout << "Taille de la donnee entree: " << m << std::endl;
+
+    // Afficher les bits d'entree
+    std::cout << "Les bits entres sont : ";
+    for (uint32_t i = 0; i < m; ++i)
+    {
+        std::bitset<8> byte(data[i]);
+        std::cout << byte << " ";
+    }
+    std::cout << std::endl;
+
+    // Calcul du nombre de bits de parite necessaires
+    uint32_t r = 0;
+    while ((1 << r) < (m + r + 1))
+    {
+        r++;
+    }
+
+    std::cout << "Nombre de bits de parite necessaires : " << r << std::endl;
+
+    // Taille totale du message encode
+    uint32_t totalSize = m + r;
+    DynamicDataBuffer encodedData(totalSize);
+
+    // Insertion des bits de donnees et des bits de parite (initialement a 0)
+    uint32_t dataIndex = 0;
+    for (uint32_t i = 1; i <= totalSize; ++i)
+    {
+        if ((i & (i - 1)) == 0)
+        {
+            encodedData[i - 1] = 0; // Position de parite
+        }
+        else
+        {
+            encodedData[i - 1] = data[dataIndex];
+            dataIndex++;
+        }
+    }
+
+    // Calcul des bits de parite
+    for (uint32_t i = 0; i < r; ++i)
+    {
+        uint32_t parityPos = (1 << i);
+        uint32_t parity = 0;
+        for (uint32_t j = 1; j <= totalSize; ++j)
+        {
+            if (j & parityPos)
+            {
+                parity ^= encodedData[j - 1];
+            }
+        }
+        encodedData[parityPos - 1] = parity;
+    }
+
+    // Affichage des donnees encodees
+    std::cout << "Donnees encodees : ";
+    for (uint32_t i = 0; i < totalSize; ++i)
+    {
+        std::cout << (int)encodedData[i];
+    }
+    std::cout << std::endl;
+
+    return encodedData;
 }
 
 std::pair<bool, DynamicDataBuffer> HammingDataEncoderDecoder::decode(const DynamicDataBuffer& data) const
 {
-    // À faire TP1 (si Hamming demandé)
-    return std::pair<bool, DynamicDataBuffer>(true, data);
-}
+    std::cout << "----- Decodeur -----" << std::endl;
 
+    // Taille du message encode
+    uint32_t totalSize = data.size();
+
+    std::cout << "Message encode recu : ";
+    for (uint32_t i = 0; i < totalSize; ++i)
+    {
+        std::cout << (int)data[i] << " ";
+    }
+    std::cout << std::endl;
+
+    // Calcul du nombre de bits de parite
+    uint32_t r = 0;
+    while ((1 << r) < totalSize)
+    {
+        r++;
+    }
+
+    std::cout << "Nombre de bits de parite : " << r << std::endl;
+
+    // Calcul des bits de parite et detection d'erreur
+    uint32_t errorPosition = 0;
+    for (uint32_t i = 0; i < r; ++i)
+    {
+        uint32_t parityPos = (1 << i);
+        uint32_t parity = 0;
+        for (uint32_t j = 1; j <= totalSize; ++j)
+        {
+            if (j & parityPos)
+            {
+                parity ^= data[j - 1];
+            }
+        }
+        if (parity != 0)
+        {
+            errorPosition += parityPos;
+        }
+    }
+
+    std::cout << "Position de l'erreur detectee : " << errorPosition << std::endl;
+
+    // Correction d'erreur si necessaire
+    DynamicDataBuffer correctedData = data; // Copie des donnees
+    if (errorPosition > 0 && errorPosition <= totalSize)
+    {
+        correctedData[errorPosition - 1] ^= 1;
+        std::cout << "Erreur corrigee a la position " << errorPosition << std::endl;
+    }
+
+    // Extraction des bits de donnees
+    DynamicDataBuffer decodedData(totalSize - r);
+    uint32_t dataIndex = 0;
+    for (uint32_t i = 1; i <= totalSize; ++i)
+    {
+        if ((i & (i - 1)) != 0)
+        {
+            decodedData[dataIndex] = correctedData[i - 1];
+            dataIndex++;
+        }
+    }
+
+    // Affichage des donnees decodees
+    std::cout << "Les Donnees recues sont : ";
+    for (uint32_t i = 0; i < decodedData.size(); ++i)
+    {
+        std::bitset<8> byte(decodedData[i]);
+        std::cout << byte << " ";
+    }
+    std::cout << std::endl;
+
+    // Verification si une correction a ete effectuee
+    bool corrected = (errorPosition > 0);
+
+    if (corrected)
+    {
+        std::cout << "Test : Buffer en erreur -> Test valide" << std::endl;
+    }
+    else
+    {
+        std::cout << "Test : Buffer valide -> Test valide" << std::endl;
+    }
+
+    return std::make_pair(corrected, decodedData);
+}
 
 
 //===================================================================

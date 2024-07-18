@@ -60,7 +60,13 @@ set(ALL_FILES
 ################################################################################
 # Target
 ################################################################################
-add_executable(${PROJECT_NAME} ${ALL_FILES})
+add_executable(Simulateur
+    main.cpp
+    Computer/Driver/Layer/LinkLayerLow.cpp
+    Computer/Driver/Layer/LinkLayerLow.h
+    # Ajoutez tous les autres fichiers nécessaires ici
+)
+
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY   "Output/")
