@@ -1,20 +1,21 @@
 #include <iostream>
 #include <string>
 #include <vector>
-
+#include <cassert>
 #include "Computer/Computer.h"
 #include "Transmission/Transmission.h"
 #include "Computer/Driver/Layer/LinkLayerLow.h"
+#include <bitset>
 
 struct Config
 {
     size_t NumberComputer = 2;
     size_t FirstNumber = 1;
     std::string GlobalConfigName = "";
-    size_t CodeCorrecteur = 0; // 0 = Aucun, 1 = CRC, 2 = Hamming
+    size_t CodeCorrecteur = 2   ; // 0 = Aucun, 1 = CRC, 2 = Hamming
 };
 
-Config parse_arguments(int argc, char *argv[])
+Config parse_arguments(int argc, char* argv[])
 {
     Config config;
     config.NumberComputer = 2;
@@ -26,7 +27,7 @@ Config parse_arguments(int argc, char *argv[])
         {
             if (i + 1 < argc)
             {
-                std::cout << "Initialization avec " << argv[i+1] << " ordinateurs." << std::endl;
+                std::cout << "Initialization avec " << argv[i + 1] << " ordinateurs." << std::endl;
                 int numberComputer = std::stoi(argv[i + 1]);
                 if (numberComputer < 1)
                 {
@@ -46,7 +47,7 @@ Config parse_arguments(int argc, char *argv[])
         {
             if (i + 1 < argc)
             {
-                std::cout << "Premier numero des ordinateurs : " << argv[i+1] << std::endl;
+                std::cout << "Premier numero des ordinateurs : " << argv[i + 1] << std::endl;
                 int firstNumber = std::stoi(argv[i + 1]);
                 if (firstNumber < 0)
                 {
@@ -67,7 +68,7 @@ Config parse_arguments(int argc, char *argv[])
             if (i + 1 < argc)
             {
                 std::cout << "Configuration globale a utiliser : " << argv[i + 1] << std::endl;
-                config.GlobalConfigName = std::string(argv[i+1]);
+                config.GlobalConfigName = std::string(argv[i + 1]);
             }
             else
             {
@@ -79,7 +80,7 @@ Config parse_arguments(int argc, char *argv[])
             if (i + 1 < argc)
             {
                 int code = std::stoi(argv[i + 1]);
-                if (code < 3 && code > 0) 
+                if (code < 3 && code > 0)
                 {
                     config.CodeCorrecteur = code;
                 }
@@ -129,7 +130,7 @@ void execute_correction_erreur_test(size_t codeCorrecteur)
     }
     else if (codeCorrecteur == 2)
     {
-        // Un encoder/decodeur de Hamming detecte et corrige les erreurs. 
+        // Un encoder/decodeur de Hamming detecte et corrige les erreurs.
         HammingDataEncoderDecoder encoder;
         DynamicDataBuffer outBuffer = encoder.encode(buffer);
         outBuffer[1] = 'f';
@@ -170,14 +171,33 @@ void execute_correction_erreur_test(size_t codeCorrecteur)
     }
 }
 
-int main(int argc, char *argv[])
+    // Ma fonction test manuel pour l'autre fonction Encode qui est sur LinkLayerLow.cpp
+void testHammingEncoding() {
+    HammingDataEncoderDecoder encoder;
+
+    // Data d'entrée de 4 bits
+    uint8_t testData = 0b1010; // Binaire : 00001010
+    DynamicDataBuffer inputBuffer;
+    inputBuffer.push_back(testData);
+
+    // Appel direct de la fonction encode
+    DynamicDataBuffer encodedBuffer = encoder.encode(inputBuffer);
+}
+    ///////////////////////////
+
+
+int main(int argc, char* argv[])
 {
     Config config = parse_arguments(argc, argv);
     if (config.CodeCorrecteur > 0) {
         execute_correction_erreur_test(config.CodeCorrecteur);
         return 0;
     }
-    
+
+    // Ma fonction test pour l'autre fonction Encode qui est sur LinkLayerLow.cpp
+    //testHammingEncoding();
+    ///////////////////////////
+
     Configuration globalConfig(config.GlobalConfigName);
 
     std::cout << "Demarrage du simulateur..." << std::endl;
@@ -188,7 +208,7 @@ int main(int argc, char *argv[])
     // Create computer and connect it to Hub
     for (size_t i = 0; i < config.NumberComputer; ++i)
     {
-        Computer* computer = new Computer(i+config.FirstNumber);
+        Computer* computer = new Computer(i + config.FirstNumber);
         hub.connect_computer(computer);
         computers.push_back(computer);
     }
@@ -217,7 +237,7 @@ int main(int argc, char *argv[])
             numberFileReceived += computer->receivedFileCount();
         }
     } while (numbercomputerFinished != computers.size() || numberFileReceived != numberFileSent);
-    
+
 
     std::cout << "Arret du simulateur..." << std::endl;
     hub.stop();
@@ -227,3 +247,4 @@ int main(int argc, char *argv[])
     }
     computers.clear();
 }
+
