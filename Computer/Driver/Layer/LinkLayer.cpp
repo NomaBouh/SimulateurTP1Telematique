@@ -291,51 +291,177 @@ MACAddress LinkLayer::arp(const Packet& packet) const
     return packet.Destination;
 }
 
-// Fonction qui fait l'envoi des trames et qui gere la fenetre d'envoi
 void LinkLayer::senderCallback()
 {
-    // À faire TP2
-    // Remplacer le code suivant qui ne fait qu'envoyer les trames dans l'ordre reçu sans validation
-    // afin d'exécuter le protocole à fenêtre demandé dans l'énoncé.
-    
-    // Passtrough à remplacer (TP2)
-    NumberSequence nextID = 0;
+    int Nombre_Buffers = (m_maximumSequence + 1) / 2;
+    NumberSequence ack_attendu = 0;
+    NumberSequence frame_suivant_a_envoyer = 0;
+    Frame* ext_buf = new Frame[Nombre_Buffers];
+    NumberSequence nbuffered = 0;
+    bool no_nak = true;
+
     while (m_executeSending)
     {
-        // Est-ce qu'on doit envoyer des donnees
-        if (m_driver->getNetworkLayer().dataReady())
-        {
-            Packet packet = m_driver->getNetworkLayer().getNextData();
-            Frame frame;
-            frame.Destination = arp(packet);
-            frame.Source = m_address;
-            frame.NumberSeq = nextID++;
-            frame.Data = Buffering::pack<Packet>(packet);
-            frame.Size = (uint16_t)frame.Data.size();
+        Logger log(std::cout);
+        Event next_sending_event = getNextSendingEvent();
 
-            // On envoit la trame. Si la trame n'est pas envoye, c'est qu'on veut arreter le simulateur
+        if (next_sending_event.Type == EventType::SEND_ACK_REQUEST)
+        {
+            Frame frame;
+            frame.Destination = next_sending_event.Address;
+            frame.Source = m_address;
+            frame.NumberSeq = next_sending_event.Number;
+            frame.Ack = next_sending_event.Number;
+            frame.Size = FrameType::ACK;
+
             if (!sendFrame(frame))
             {
                 return;
             }
         }
+
+        if (next_sending_event.Type == EventType::ACK_RECEIVED)
+        {
+            Logger log2(std::cout);
+            log2 << "SENDER: a recu un ACK: " << next_sending_event.Number << std::endl;
+
+            Frame* temp_buf = new Frame[Nombre_Buffers];
+            int newInt = 0;
+            for (int i = 0; i < Nombre_Buffers; i++)
+            {
+                if (ext_buf[i].NumberSeq > next_sending_event.Number)
+                {
+                    temp_buf[newInt] = ext_buf[i];
+                    newInt++;
+                }
+            }
+
+            ext_buf = temp_buf;
+
+            nbuffered--;
+            ack_attendu = next_sending_event.Number + 1;
+        }
+
+        if (next_sending_event.Type == EventType::SEND_TIMEOUT)
+        {
+            log << "SENDER: DATA TIMEOUT " << std::endl;
+            for (int i = 0; i < Nombre_Buffers; i++)
+            {
+                if (ext_buf[i].NumberSeq == next_sending_event.Number)
+                {
+                    sendFrame(ext_buf[i]);
+                }
+            }
+        }
+
+        if (next_sending_event.Type == EventType::ACK_TIMEOUT)
+        {
+            log << "SENDER: ACK TIMEOUT " << next_sending_event.Address << std::endl;
+
+            Frame frame;
+            frame.Destination = next_sending_event.Address;
+            frame.Source = m_address;
+            frame.NumberSeq = next_sending_event.Number;
+            frame.Ack = next_sending_event.Number;
+            frame.Size = FrameType::ACK;
+        }
+
+        if (next_sending_event.Type == EventType::INVALID)
+        {
+            if (nbuffered < Nombre_Buffers)
+            {
+                if (m_driver->getNetworkLayer().dataReady())
+                {
+                    log << "Adding to window" << std::endl;
+                    log << "buf_index:" << nbuffered << std::endl;
+                    log << "first_frame_number:" << ext_buf[0].NumberSeq << std::endl;
+                    log << "last_frame_number:" << frame_suivant_a_envoyer << std::endl;
+
+                    Packet packet = m_driver->getNetworkLayer().getNextData();
+
+                    Frame frame;
+                    frame.Destination = arp(packet);
+                    frame.Source = m_address;
+                    frame.NumberSeq = frame_suivant_a_envoyer;
+                    frame.Data = Buffering::pack<Packet>(packet);
+                    frame.Size = (uint16_t)frame.Data.size();
+
+                    ext_buf[nbuffered] = frame;
+
+                    nbuffered++;
+                    frame_suivant_a_envoyer++;
+
+                    if (!sendFrame(frame))
+                    {
+                        return;
+                    }
+                }
+            }
+        }
     }
 }
 
-// Fonction qui s'occupe de la reception des trames
+
 void LinkLayer::receiverCallback()
 {
-    // À faire TP2
-    // Remplacer le code suivant qui ne fait que recevoir les trames dans l'ordre reçu sans validation
-    // afin d'exécuter le protocole à fenêtre demandé dans l'énoncé.
-    
-    // Passtrough à remplacer (TP2)
+    const int Nombre_Buffers = (m_maximumSequence + 1) / 2;
+    NumberSequence frameAttendu = 0;
+    NumberSequence tres_loin = Nombre_Buffers;
+    NumberSequence* int_buf = new NumberSequence[Nombre_Buffers];
+    bool* stackArrivee = new bool[Nombre_Buffers];
+    bool no_nak = true;
+
+    for (int i = 0; i < Nombre_Buffers; i++) { stackArrivee[i] = false; }
+
     while (m_executeReceiving)
-    {        
-        if (m_receivingQueue.canRead<Frame>())
+    {
+        Logger log(std::cout);
+        Event next_receiving_event = getNextSendingEvent();
+
+        if (next_receiving_event.Type == EventType::INVALID)
         {
-            Frame frame = m_receivingQueue.pop<Frame>();
-            m_driver->getNetworkLayer().receiveData(Buffering::unpack<Packet>(frame.Data));
+            if (m_receivingQueue.canRead<Frame>())
+            {
+                Frame frame = m_receivingQueue.pop<Frame>();
+
+                if (frame.Size == FrameType::ACK)
+                {
+                    log << "Receiver: " << frame.Destination << " : a recu un ACK de la part de " << frame.Source << " : " << frame.Ack << std::endl;
+                    notifyACK(frame, frame.NumberSeq);
+                    startAckTimer(-1, frame.Ack);
+                }
+                else if (frame.Size == FrameType::NAK)
+                {
+                    log << "Receiver: " << frame.Destination << " : a recu un NAK de la part de " << frame.Source << " : " << frame.Ack << std::endl;
+                }
+                else
+                {
+                    log << "Receiver: " << frame.Destination << " : a recu des donnees de la part de " << frame.Source << " : " << frame.NumberSeq << std::endl;
+                    if ((frame.NumberSeq != frameAttendu) && no_nak)
+                    {
+                        log << "reception d'un frame non attendu: " << frame.NumberSeq << " envoie d'un NAK" << std::endl;
+                        sendNak(frame.Source, frame.NumberSeq);
+                    }
+
+                    if (between(frameAttendu, frame.NumberSeq, tres_loin) && !stackArrivee[frame.NumberSeq % Nombre_Buffers])
+                    {
+                        stackArrivee[frame.NumberSeq % Nombre_Buffers] = true;
+                        int_buf[frame.NumberSeq % Nombre_Buffers] = frame.NumberSeq;
+
+                        while (stackArrivee[frameAttendu % Nombre_Buffers])
+                        {
+                            log << "sauvegarde du packet: " << frame.NumberSeq << std::endl;
+                            m_driver->getNetworkLayer().receiveData(Buffering::unpack<Packet>(frame.Data));
+                            no_nak = true;
+                            stackArrivee[frameAttendu % Nombre_Buffers] = false;
+                            frameAttendu++;
+                            tres_loin++;
+                            sendAck(frame.Source, frame.NumberSeq);
+                            startTimeoutTimer(frame.NumberSeq);
+                        }
+                    }
+                }
+            }
         }
     }
 }
