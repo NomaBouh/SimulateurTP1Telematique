@@ -290,7 +290,7 @@ MACAddress LinkLayer::arp(const Packet& packet) const
 {
     return packet.Destination;
 }
-
+    
 void LinkLayer::senderCallback()
 {
     int Nombre_Buffers = (m_maximumSequence + 1) / 2;
