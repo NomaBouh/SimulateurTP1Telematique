@@ -12,7 +12,7 @@ struct Config
     size_t NumberComputer = 2;
     size_t FirstNumber = 1;
     std::string GlobalConfigName = "";
-    size_t CodeCorrecteur = 2; // 0 = Aucun, 1 = CRC, 2 = Hamming
+    size_t CodeCorrecteur = 0; // 0 = Aucun, 1 = CRC, 2 = Hamming
 };
 
 Config parse_arguments(int argc, char* argv[])

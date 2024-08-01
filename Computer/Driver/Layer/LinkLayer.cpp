@@ -100,19 +100,19 @@ bool LinkLayer::sendFrame(const Frame& frame)
     {
         if (canSendData(frame))
         {
-            //Logger log(std::cout);
-            //if (frame.Size == FrameType::NAK)
-            //{
-            //    log << frame.Source << " : Sending NAK  to " << frame.Destination << " : " << frame.Ack << std::endl;
-            //}
-            //else if (frame.Size == FrameType::ACK)
-            //{
-            //    log << frame.Source << " : Sending ACK  to " << frame.Destination << " : " << frame.Ack << std::endl;
-            //}
-            //else
-            //{
-            //    log << frame.Source << " : Sending DATA to " << frame.Destination << " : " << frame.NumberSeq << std::endl;
-            //}
+            Logger log(std::cout);
+            if (frame.Size == FrameType::NAK)
+            {
+                log << frame.Source << " : Sending NAK  to " << frame.Destination << " : " << frame.Ack << std::endl;
+            }
+            else if (frame.Size == FrameType::ACK)
+            {
+                log << frame.Source << " : Sending ACK  to " << frame.Destination << " : " << frame.Ack << std::endl;
+            }
+            else
+            {
+                log << frame.Source << " : Sending DATA to " << frame.Destination << " : " << frame.NumberSeq << std::endl;
+            }
             m_sendingQueue.push(frame);
             return true;
         }
