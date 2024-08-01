@@ -2,7 +2,6 @@
 
 #include <algorithm>
 
-
 DynamicDataBuffer::DynamicDataBuffer()
     : m_size(0)
 {
@@ -121,7 +120,7 @@ uint8_t* DynamicDataBuffer::data()
 void DynamicDataBuffer::replaceData(const uint8_t* data, uint32_t newDataSize, uint32_t start)
 {
     uint32_t end = std::min(start + newDataSize, m_size);
-    for (uint32_t i = start, j=0; i < end; ++i, ++j)
+    for (uint32_t i = start, j = 0; i < end; ++i, ++j)
     {
         m_data[i] = data[j];
     }
@@ -130,4 +129,13 @@ void DynamicDataBuffer::replaceData(const uint8_t* data, uint32_t newDataSize, u
 void DynamicDataBuffer::replaceData(const DynamicDataBuffer& buffer, uint32_t start)
 {
     replaceData(buffer.data(), buffer.size(), start);
+}
+
+void DynamicDataBuffer::push_back(uint8_t data)
+{
+    buffer.push_back(data);
+    m_size = buffer.size();
+    delete[] m_data;
+    m_data = new uint8_t[m_size];
+    std::copy(buffer.begin(), buffer.end(), m_data);
 }
